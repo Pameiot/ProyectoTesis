@@ -1,0 +1,187 @@
+body {
+    font-family: Arial, sans-serif;
+    background: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.Encabezado {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 20px;
+    margin-bottom: 20px;
+    background-color: #fff;
+    gap: 20px;
+    text-align: center;
+}
+
+.titulo {
+    font-size: 18px;
+    text-align: center;
+    font-weight: bold;
+    color: black;
+    line-height: 1.4;
+    margin: 0 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    max-width: 600px;
+}
+
+.logo-izq {
+    width: 120px;
+    margin-right: 80px;
+}
+
+.logo-der {
+    margin-left: 20px;
+    height: 50px;
+    width: auto;
+}
+
+table {
+    border-collapse: collapse;
+    width: 70%;
+    background: white;
+    margin: 0 auto;
+    border: 2px solid black !important;
+}
+
+th,
+td {
+    font-size: 12px;
+    border: 2px solid black;
+    padding: 8px;
+    text-align: center;
+}
+
+
+.botones {
+    display: flex;
+    background-color: #ED1C24;
+    width: 100%;
+    height: 50px;
+    align-items: center;
+    text-align: center;
+    justify-content: center;
+    margin-bottom: 20px;
+    margin-top: 0 !important;
+}
+
+.botones a,
+.botones button {
+    font-family: Arial, sans-serif;
+    font-weight: bold;
+}
+
+.table-compact {
+    width: auto;
+    table-layout: auto;
+    font-size: 12px;
+}
+
+.table-compact th,
+.table-compact td {
+    padding: 6px 12px;
+    white-space: nowrap;
+}
+
+.page-item.active .page-link {
+    background-color: #2b2e30;
+    color: white !important;
+    border-color: #000000;
+}
+
+.grafica-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 30px;
+    justify-content: space-between;
+}
+
+.grafica-container .grafica {
+    flex: 1 1 calc(33% - 20px);
+    min-width: 300px;
+}
+
+.fila-final {
+    justify-content: start;
+}
+
+.datitos {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+}
+
+.resul {
+    display: flex;
+    justify-content: center;
+    width: 50%;
+    height: 50%;
+}
+
+.resultados {
+    display: flex;
+    flex-direction: column;
+    margin-left: 10%;
+    width: 500px;
+}
+h3{
+    font-weight: bold;
+    font-size: 38px;
+}
+.container{
+    margin: 5px !important;
+}
+.alert{
+    margin: 0 !important;
+    padding: 3px !important;
+}
+.list-group li{
+    padding:  3px !important;
+}
+.entremientoknnto{
+    display: flex;
+    width: 100%;
+    justify-content: center;
+    gap: 50px;
+}
+.container h3{
+    margin-top: 0 !important;
+    margin-bottom: 10px;
+}
+
+.card{
+margin-top: 20px;
+}
+
+.resultado {
+    font-size: 24px;
+    font-weight: bold;
+    padding: 10px;
+    border-radius: 5px;
+    color: white;
+    text-align: center;
+    width: 200px;
+    margin: 0 auto 20px auto;
+}
+
+.resultado-muyviable {
+    background-color: #79bced; 
+}
+
+.resultado-viable {
+    background-color: #f4a259; 
+}
+
+.resultado-pocoviable {
+    background-color: #6cc070; 
+}
+
+.resultado-noviable {
+    background-color: #e63946; 
+}

@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>SISTEMA IOT</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="icon" href="/recursos/logo.ico" type="image/x-icon" />
+    <link rel="stylesheet" href="/css/estilo.css" />
+</head>
+
+<body>
+    <div class="container my-4">
+        <div class="d-flex align-items-center justify-content-between" style="gap: 20px; flex-wrap: nowrap">
+            <img src="/recursos/utn.png" class="img-fluid" style="height: 80px" alt="Logo UTN" />
+            <h2 class="text-center fw-bold m-0 flex-grow-1" style="font-size: 16px; line-height: 1.4">
+                SISTEMA IOT DE MONITOREO DE RESIDUOS ORGÁNICOS DE GANADO BOVINO EN LA
+                COMUNIDAD DE GUANANGUICHO SUR DEL CANTÓN SAN PEDRO DE HUACA
+            </h2>
+            <img src="/recursos/Fica.png" class="img-fluid" style="height: 40px" alt="Logo FICA" />
+        </div>
+    </div>
+
+    <div class="botones text-center my-3">
+        <a href="/" class="btn btn-dark mx-2">DATOS</a>
+        <a href="/grafica" class="btn btn-dark mx-2">GRAFICA</a>
+        <a href="/knn" class="btn btn-dark mx-2">RESULTADOS</a>
+        <a href="/entrenamiento" class="btn btn-dark mx-2">ENTRENAMIENTO</a>
+    </div>
+
+    <div class="container mb-3">
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" role="switch" id="modoHistorial" />
+            <label class="form-check-label" for="modoHistorial">Modo Historial</label>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="row g-4">
+            <div class="col-md-4"><canvas id="graficaAmbiental"></canvas></div>
+            <div class="col-md-4"><canvas id="graficaTemperatura"></canvas></div>
+            <div class="col-md-4"><canvas id="graficaHumedad"></canvas></div>
+            <div class="col-md-4"><canvas id="graficaPH"></canvas></div>
+            <div class="col-md-4"><canvas id="graficaGas"></canvas></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        let labels = {{ fechas | tojson | safe }};
+        let temperaturas = {{ temperaturas | tojson | safe }};
+        let humedades = {{ humedades | tojson | safe }};
+        let phs = {{ phs | tojson | safe }};
+        let gases = {{ gases | tojson | safe }};
+        let t_amb = {{ t_ambiente | tojson | safe }};
+        let h_amb = {{ h_ambiente | tojson | safe }};
+
+        let charts = {};
+
+        function crearGrafica(idCanvas, datasets, titulo, minY = 0, maxY = 100) {
+            const ctx = document.getElementById(idCanvas).getContext("2d");
+            if (charts[idCanvas]) charts[idCanvas].destroy();
+
+            const step = (maxY - minY) > 20 ? 10 : undefined;
+
+            charts[idCanvas] = new Chart(ctx, {
+                type: "line",
+                data: {
+                    labels: labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                usePointStyle: true,
+                                pointStyle: 'circle'
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: titulo,
+                            font: { size: 12 }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { display: false },
+                            title: {
+                                display: true,
+                                text: "Fecha y Hora"
+                            },
+                            grid: { drawTicks: false }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            min: minY,
+                            max: maxY,
+                            ticks: step ? { stepSize: step } : {},
+                            title: { display: true, text: "Valor" }
+                        }
+                    }
+                }
+            });
+        }
+
+        function actualizarGraficas() {
+            crearGrafica("graficaAmbiental", [
+                {
+                    label: "T. Ambiente",
+                    data: t_amb,
+                    borderColor: "purple",
+                    pointBackgroundColor: "purple",
+                    backgroundColor: "rgba(128, 0, 128, 0.2)", // morado transparente
+                    tension: 0.3,
+                    fill: true
+                },
+                {
+                    label: "H. Ambiente",
+                    data: h_amb,
+                    borderColor: "teal",
+                    pointBackgroundColor: "teal",
+                    backgroundColor: "rgba(0, 128, 128, 0.2)", // teal transparente
+                    tension: 0.3,
+                    fill: true
+                }
+            ], "Temperatura y Humedad Ambiental");
+
+            crearGrafica("graficaTemperatura", [{
+                label: "Temperatura",
+                data: temperaturas,
+                borderColor: "red",
+                pointBackgroundColor: "red",
+                backgroundColor: "rgba(255, 0, 0, 0.2)", // rojo transparente
+                tension: 0.3,
+                fill: true
+            }], "Temperatura de la Fosa", 0, 60);
+
+            crearGrafica("graficaHumedad", [{
+                label: "Humedad",
+                data: humedades,
+                borderColor: "blue",
+                pointBackgroundColor: "blue",
+                backgroundColor: "rgba(0, 0, 255, 0.2)", // azul transparente
+                tension: 0.3,
+                fill: true
+            }], "Humedad del Suelo", 0, 100);
+
+            crearGrafica("graficaPH", [{
+                label: "pH",
+                data: phs,
+                borderColor: "green",
+                pointBackgroundColor: "green",
+                backgroundColor: "rgba(0, 128, 0, 0.2)",
+                tension: 0.3,
+                fill: true
+            }], "pH", 0, 14);
+
+            crearGrafica("graficaGas", [{
+                label: "Gas",
+                data: gases,
+                borderColor: "orange",
+                pointBackgroundColor: "orange",
+                backgroundColor: "rgba(255, 165, 0, 0.2)", // naranja transparente
+                tension: 0.3,
+                fill: true
+            }], "Gas", 0, 200);
+        }
+
+        document.getElementById("modoHistorial").addEventListener("change", async function () {
+            if (this.checked) {
+                const res = await fetch("/historial");
+                const data = await res.json();
+                labels = data.labels;
+                temperaturas = data.temperaturas;
+                humedades = data.humedades;
+                gases = data.gases;
+                phs = data.phs;
+                t_amb = data.t_amb;
+                h_amb = data.h_amb;
+            } else {
+                labels = {{ fechas | tojson | safe }};
+                temperaturas = {{ temperaturas | tojson | safe }};
+                humedades = {{ humedades | tojson | safe }};
+                phs = {{ phs | tojson | safe }};
+                gases = {{ gases | tojson | safe }};
+                t_amb = {{ t_ambiente | tojson | safe }};
+                h_amb = {{ h_ambiente | tojson | safe }};
+            }
+
+            actualizarGraficas();
+        });
+
+        actualizarGraficas();
+    </script>
+</body>
+
+</html>
