@@ -1,73 +1,108 @@
-import pandas as pd
-import matplotlib.pyplot as plt
-import io
-import base64
+# VerPCA.py
 import os
 import joblib
+import numpy as np
+import pandas as pd
+import plotly.express as px
+import plotly.io as pio
+from sklearn.decomposition import PCA
 
-# Cargar el scaler entrenado
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-scaler = joblib.load(os.path.join(BASE_DIR, "scaler.pkl"))
+FEATURES = ["Temp", "Humedad", "Gas", "Ph", "TempAmbiente", "HumedadAmbiente"]
 
-def GraficoPCA(df, entrada_escalada, pca):
+def GraficoPCA(df: pd.DataFrame, entrada_escalada):
     try:
-        # Etiquetar datos para la gráfica
-        def etiqueta_viabilidad(fila):
-            criterios_viables = 0
-            if 6.5 <= fila['Ph'] <= 8.5:
-                criterios_viables += 1
-            if 50 <= fila['Humedad'] <= 85:
-                criterios_viables += 1
-            if 10 <= fila['Temp'] <= 40:
-                criterios_viables += 1
-            if fila['Gas'] < 1000:
-                criterios_viables += 1
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        scaler_path = os.path.join(base_dir, "scaler.pkl")
+        model_path  = os.path.join(base_dir, "modelo_knn.pkl")
+        pca3_path   = os.path.join(base_dir, "pca3.pkl")
 
-            if criterios_viables == 4:
-                return "Muy Viable"
-            elif criterios_viables == 3:
-                return "Viable"
-            elif criterios_viables == 2:
-                return "Poco Viable"
-            else:
-                return "No Viable"
+        if not os.path.exists(scaler_path):
+            return "<div class='alert alert-danger'>No se encuentra scaler.pkl. Entrena el modelo primero.</div>"
+        if not os.path.exists(model_path):
+            return "<div class='alert alert-danger'>No se encuentra modelo_knn.pkl. Entrena el modelo primero.</div>"
+        scaler = joblib.load(scaler_path)
+        knn    = joblib.load(model_path)
 
-        df["Viabilidad"] = df.apply(etiqueta_viabilidad, axis=1)
+        faltantes = [c for c in FEATURES if c not in df.columns]
+        if faltantes:
+            return f"<div class='alert alert-danger'>Faltan columnas en DATA.csv para graficar: {faltantes}</div>"
+        X = df[FEATURES].values
+        Xs = scaler.transform(X)
+        if os.path.exists(pca3_path):
+            pca3 = joblib.load(pca3_path)
+        else:
+            pca3 = PCA(n_components=3, random_state=42).fit(Xs)
+            try:
+                joblib.dump(pca3, pca3_path)
+            except Exception:
 
-        # Variables a usar
-        variables = ["Temp", "Humedad", "Gas", "Ph", "TempAmbiente", "HumedadAmbiente"]
-        X = df[variables].values
+                pass
+        X3 = pca3.transform(Xs)
 
-        # Escalar los datos ANTES de aplicar PCA
-        X_scaled = scaler.transform(X)
-        X_pca = pca.transform(X_scaled)
-        df["PCA1"] = X_pca[:, 0]
-        df["PCA2"] = X_pca[:, 1]
+        p0 = np.asarray(entrada_escalada)
+        if p0.ndim == 1:
+            p0 = p0.reshape(1, -1)
 
-        # Dato actual ya viene escalado — aplicar clipping para evitar deformaciones
-        entrada_clip = entrada_escalada.clip(lower=-3, upper=3)  # ← esto es lo nuevo
-        entrada_pca = pca.transform(entrada_clip)
+        x0 = pca3.transform(p0)
+        y_plot = knn.predict(Xs)
 
-        # Gráfico
-        fig, ax = plt.subplots(figsize=(6, 4))
-        for tipo in ["Muy Viable", "Viable", "Poco Viable", "No Viable"]:
-            sub = df[df["Viabilidad"] == tipo]
-            ax.scatter(sub["PCA1"], sub["PCA2"], label=tipo, alpha=0.6)
+        color_map = {
+            "Muy Viable": "#1f77b4",  # azul
+            "Viable":     "#ff7f0e",  # naranja
+            "Poco Viable":"#2ca02c",  # verde
+            "No Viable":  "#d62728",  # rojo
+        }
 
-        ax.scatter(entrada_pca[:, 0], entrada_pca[:, 1], color='red', marker='X', s=150, label='Dato Actual')
-        ax.set_xlabel("Componente 1")
-        ax.set_ylabel("Componente 2")
-        ax.legend()
+        df_plot = pd.DataFrame({
+            "PC1": X3[:, 0],
+            "PC2": X3[:, 1],
+            "PC3": X3[:, 2],
+            "Casos": y_plot
+        })
 
-        buf = io.BytesIO()
-        plt.tight_layout()
-        plt.savefig(buf, format="png")
-        plt.close(fig)
-        buf.seek(0)
-        imagen_base64 = base64.b64encode(buf.read()).decode('utf-8')
-        buf.close()
+        fig = px.scatter_3d(
+            df_plot,
+            x="PC1", y="PC2", z="PC3",
+            color="Casos",
+            color_discrete_map=color_map,
+            opacity=0.75,
+            height=400,
+        )
+        k = getattr(knn, "n_neighbors", 5)
+        dist, idx = knn.kneighbors(p0, n_neighbors=k)
+        vecinos3 = X3[idx[0], :]
+        fig.add_scatter3d(
+            x=vecinos3[:, 0],
+            y=vecinos3[:, 1],
+            z=vecinos3[:, 2],
+            mode="markers",
+            marker=dict(
+                size=8,
+                color="rgba(0,0,0,0)",
+                line=dict(color="black", width=2)
+            ),
+            name=f"{k} vecinos"
+        )
 
-        return imagen_base64
+        fig.add_scatter3d(
+            x=[x0[0, 0]],
+            y=[x0[0, 1]],
+            z=[x0[0, 2]],
+            mode="markers",
+            marker=dict(size=10, color="crimson", symbol="x"),
+            name="Dato actual"
+        )
+        fig.update_layout(
+            margin=dict(l=0, r=0, t=40, b=0),
+            legend=dict(itemsizing="constant"),
+            scene=dict(
+                xaxis_title="PC1",
+                yaxis_title="PC2",
+                zaxis_title="PC3"
+            )
+        )
+        html_div = pio.to_html(fig, include_plotlyjs="cdn", full_html=False)
+        return html_div
 
     except Exception as e:
-        return None
+        return f"<div class='alert alert-danger'>Error generando PCA 3D: {e}</div>"
