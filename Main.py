@@ -17,14 +17,12 @@ from EnvioMQTT import ConexionBroker, publidatosMQTT
 from VerPCA import GraficoPCA
 from Descarga import exportar_csv, exportar_excel
 
-# Inicialización MQTT
 ConexionBroker()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CSV_PATH = os.path.join(BASE_DIR, "DATA.csv")
 K_FILE = os.path.join(BASE_DIR, "k_usado.txt")
 
-# Leer k_actual desde archivo si existe
 try:
     with open(K_FILE, "r") as f:
         k_actual = int(f.read().strip())
@@ -100,6 +98,8 @@ def historial():
     except Exception as e:
         return {"error": f"Ocurrió un error al cargar historial: {e}"}, 500
 
+# ... arriba ya tienes modelo_knn, scaler cargados
+
 @app.route("/knn")
 def vista_knn():
     if not datos_recibidos:
@@ -107,7 +107,6 @@ def vista_knn():
 
     ultimo = datos_recibidos[-1]
 
-    # Construcción del DataFrame con nombres y orden correcto
     columnas_modelo = ["Temp", "Humedad", "Gas", "Ph", "TempAmbiente", "HumedadAmbiente"]
     entrada = pd.DataFrame([{
         "Temp": float(ultimo["TEMPERATURA"]),
@@ -119,7 +118,7 @@ def vista_knn():
     }])[columnas_modelo]
 
     try:
-        # Escalamiento con nombres preservados
+        # Escalamiento
         entrada_escalada = pd.DataFrame(scaler.transform(entrada), columns=columnas_modelo)
         resultado = modelo_knn.predict(entrada_escalada)[0]
 
@@ -129,7 +128,6 @@ def vista_knn():
         hum = entrada["Humedad"].iloc[0]
 
         explicacion = []
-
         if gas < 300:
             explicacion.append(f"El nivel de gas es {gas:.1f} ppm siendo de bajo nivel")
         elif gas < 1000:
@@ -158,10 +156,7 @@ def vista_knn():
 
         resultados_procesados.append({
             "FechaHora": datetime.now().strftime("%d/%m/%Y %H:%M"),
-            "Temp": temp,
-            "Humedad": hum,
-            "Gas": gas,
-            "Ph": ph,
+            "Temp": temp, "Humedad": hum, "Gas": gas, "Ph": ph,
             "TempAmb": float(ultimo["T.AMBIENTE"]),
             "HumAmb": float(ultimo["H.AMBIENTE"]),
             "Viabilidad": resultado,
@@ -171,26 +166,28 @@ def vista_knn():
             "Eval_Humedad": explicacion[3]
         })
 
-        mensaje_str = f"{resultado};{interpretacion};{explicacion[0]};{explicacion[1]};{explicacion[2]};{explicacion[3]}"
-        mensaje_puro = f"{temp:.2f};{hum:.2f};{gas:.2f};{ph:.2f};{float(ultimo['T.AMBIENTE']):.2f};{float(ultimo['H.AMBIENTE']):.2f}"
-        publidatosMQTT(mensaje_str, mensaje_puro)
-
+        # --- SOLO 3D con Plotly ---
         df = pd.read_csv(CSV_PATH, delimiter=';')
-        imagen_base64 = GraficoPCA(df, entrada_escalada, pca)
+        from VerPCA import GraficoPCA   # ahora es la versión 3D
+        imagen_html = GraficoPCA(df, entrada_escalada)
+        imagen_grafico = imagen_html  # HTML interactivo
 
     except Exception as e:
         resultado = f"Error al predecir: {e}"
         interpretacion = None
-        imagen_base64 = None
+        imagen_grafico = None
         explicacion = []
 
-    return render_template("knn.html", resultado=resultado, interpretacion=interpretacion,
-                        imagen_grafico=imagen_base64, detalles=explicacion)
+    return render_template("knn.html",
+                        resultado=resultado, interpretacion=interpretacion,
+                        imagen_grafico=imagen_grafico, detalles=explicacion)
+
 
 @app.route("/entrenamiento", methods=["GET", "POST"])
 def entrenamiento():
-    global k_actual
+    global k_actual, modelo_knn, scaler, pca
     try:
+        # --- Entrenamiento ---
         if request.method == "POST":
             if 'automatico' in request.form:
                 precision, error, y_real, y_pred, nuevo_k, filas, columnas = mejorKnn()
@@ -203,11 +200,18 @@ def entrenamiento():
         else:
             precision, error, y_real, y_pred, _, filas, columnas = entrenar(k_actual)
 
+        # --- Recarga de artefactos entrenados ---
+        modelo_knn = joblib.load(os.path.join(BASE_DIR, "modelo_knn.pkl"))
+        scaler     = joblib.load(os.path.join(BASE_DIR, "scaler.pkl"))
+        pca        = joblib.load(os.path.join(BASE_DIR, "pca.pkl"))
+
+        # --- Matriz de confusión ---
         labels_v = ["Muy Viable", "Viable", "Poco Viable", "No Viable"]
         cm = confusion_matrix(y_real, y_pred, labels=labels_v)
 
         plt.figure(figsize=(6, 4))
-        sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=labels_v, yticklabels=labels_v)
+        sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
+                    xticklabels=labels_v, yticklabels=labels_v)
         plt.xlabel("Predicción")
         plt.ylabel("Real")
         plt.title("Matriz de Confusión")
@@ -220,11 +224,14 @@ def entrenamiento():
         grafico_base64 = base64.b64encode(buf.read()).decode('utf-8')
         buf.close()
 
-        return render_template("entrenamiento.html", precision=precision, error=error,
-                               grafico=grafico_base64, k=k_actual, filas=filas, columnas=columnas)
+        return render_template("entrenamiento.html",
+                               precision=precision, error=error,
+                               grafico=grafico_base64, k=k_actual,
+                               filas=filas, columnas=columnas)
 
     except Exception as e:
         return f"Error durante el entrenamiento: {e}", 500
+
 
 @app.route("/descargar_csv")
 def descargar_csv():
