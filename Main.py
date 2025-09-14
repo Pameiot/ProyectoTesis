@@ -58,7 +58,7 @@ def home():
     total_paginas = (len(datos_recibidos) + por_pagina - 1) // por_pagina
 
     return render_template("index.html", encabezados=encabezados_defecto, datos=datos_pagina,
-                           pagina_actual=pagina, total_paginas=total_paginas)
+                        pagina_actual=pagina, total_paginas=total_paginas)
 
 @app.route("/ultimos", methods=["GET"])
 def obtener_ultimos():
@@ -80,7 +80,7 @@ def grafica():
     h_ambiente = [float(d.get("H.AMBIENTE", 0)) for d in datos_recibidos]
 
     return render_template("grafica.html", fechas=fechas, temperaturas=temperaturas, humedades=humedades,
-                           phs=phs, gases=gases, t_ambiente=t_ambiente, h_ambiente=h_ambiente)
+                        phs=phs, gases=gases, t_ambiente=t_ambiente, h_ambiente=h_ambiente)
 
 @app.route("/historial")
 def historial():
@@ -98,7 +98,7 @@ def historial():
     except Exception as e:
         return {"error": f"Ocurrió un error al cargar historial: {e}"}, 500
 
-# ... arriba ya tienes modelo_knn, scaler cargados
+
 
 @app.route("/knn")
 def vista_knn():
@@ -120,7 +120,6 @@ def vista_knn():
     try:
         entrada_escalada = pd.DataFrame(scaler.transform(entrada), columns=columnas_modelo)
         resultado = modelo_knn.predict(entrada_escalada)[0]
-
         gas = entrada["Gas"].iloc[0]
         ph = entrada["Ph"].iloc[0]
         temp = entrada["Temp"].iloc[0]
@@ -164,24 +163,20 @@ def vista_knn():
             "Eval_Temp": explicacion[2],
             "Eval_Humedad": explicacion[3]
         })
-
-    try:
-            mensaje_str = (
-                f"Viabilidad={resultado}; "
-                f"Temp={temp:.2f}C; Hum={hum:.2f}% ; Gas={gas:.2f}ppm; pH={ph:.2f}; "
-                f"TAmb={float(ultimo['T.AMBIENTE']):.2f}C; HAmb={float(ultimo['H.AMBIENTE']):.2f}%"
-            )
-            mensaje_puro = (
-                f"{temp:.2f};{hum:.2f};{gas:.2f};{ph:.2f};"
-                f"{float(ultimo['T.AMBIENTE']):.2f};{float(ultimo['H.AMBIENTE']):.2f};{resultado}"
-            )
+        mensaje_str = f"{resultado};{interpretacion};{explicacion[0]};{explicacion[1]};{explicacion[2]};{explicacion[3]}"
+        mensaje_puro = (
+            f"{temp:.2f};{hum:.2f};{gas:.2f};{ph:.2f};"
+            f"{float(ultimo['T.AMBIENTE']):.2f};{float(ultimo['H.AMBIENTE']):.2f}"
+        )
+        try:
             publidatosMQTT(mensaje_str, mensaje_puro)
         except Exception as e:
             print("MQTT error al publicar:", e)
         df = pd.read_csv(CSV_PATH, delimiter=';')
-        from VerPCA import GraficoPCA   # ahora es la versión 3D
+        from VerPCA import GraficoPCA   
         imagen_html = GraficoPCA(df, entrada_escalada)
-        imagen_grafico = imagen_html  # HTML interactivo
+        imagen_grafico = imagen_html  
+
 
     except Exception as e:
         resultado = f"Error al predecir: {e}"
@@ -198,7 +193,6 @@ def vista_knn():
 def entrenamiento():
     global k_actual, modelo_knn, scaler, pca
     try:
-        # --- Entrenamiento ---
         if request.method == "POST":
             if 'automatico' in request.form:
                 precision, error, y_real, y_pred, nuevo_k, filas, columnas = mejorKnn()
@@ -210,13 +204,10 @@ def entrenamiento():
                 precision, error, y_real, y_pred, _, filas, columnas = entrenar(k_actual)
         else:
             precision, error, y_real, y_pred, _, filas, columnas = entrenar(k_actual)
-
-        # --- Recarga de artefactos entrenados ---
         modelo_knn = joblib.load(os.path.join(BASE_DIR, "modelo_knn.pkl"))
         scaler     = joblib.load(os.path.join(BASE_DIR, "scaler.pkl"))
         pca        = joblib.load(os.path.join(BASE_DIR, "pca.pkl"))
 
-        # --- Matriz de confusión ---
         labels_v = ["Muy Viable", "Viable", "Poco Viable", "No Viable"]
         cm = confusion_matrix(y_real, y_pred, labels=labels_v)
 
@@ -236,9 +227,9 @@ def entrenamiento():
         buf.close()
 
         return render_template("entrenamiento.html",
-                               precision=precision, error=error,
-                               grafico=grafico_base64, k=k_actual,
-                               filas=filas, columnas=columnas)
+                            precision=precision, error=error,
+                            grafico=grafico_base64, k=k_actual,
+                            filas=filas, columnas=columnas)
 
     except Exception as e:
         return f"Error durante el entrenamiento: {e}", 500
