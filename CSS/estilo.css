@@ -4,11 +4,11 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    
-}
-.table-compact > :not(caption) > * > * { padding: .35rem .5rem; }
+    .table-compact > :not(caption) > * > * { padding: .35rem .5rem; }
 .pagination .page-link { padding: .35rem .6rem; }
 .pagination .page-item.disabled .page-link { pointer-events: none; }
+
+}
 .Encabezado {
     display: flex;
     align-items: center;
