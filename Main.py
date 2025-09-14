@@ -118,7 +118,6 @@ def vista_knn():
     }])[columnas_modelo]
 
     try:
-        # Escalamiento
         entrada_escalada = pd.DataFrame(scaler.transform(entrada), columns=columnas_modelo)
         resultado = modelo_knn.predict(entrada_escalada)[0]
 
@@ -166,7 +165,19 @@ def vista_knn():
             "Eval_Humedad": explicacion[3]
         })
 
-        # --- SOLO 3D con Plotly ---
+               try:
+            mensaje_str = (
+                f"Viabilidad={resultado}; "
+                f"Temp={temp:.2f}C; Hum={hum:.2f}% ; Gas={gas:.2f}ppm; pH={ph:.2f}; "
+                f"TAmb={float(ultimo['T.AMBIENTE']):.2f}C; HAmb={float(ultimo['H.AMBIENTE']):.2f}%"
+            )
+            mensaje_puro = (
+                f"{temp:.2f};{hum:.2f};{gas:.2f};{ph:.2f};"
+                f"{float(ultimo['T.AMBIENTE']):.2f};{float(ultimo['H.AMBIENTE']):.2f};{resultado}"
+            )
+            publidatosMQTT(mensaje_str, mensaje_puro)
+        except Exception as e:
+            print("MQTT error al publicar:", e)
         df = pd.read_csv(CSV_PATH, delimiter=';')
         from VerPCA import GraficoPCA   # ahora es la versión 3D
         imagen_html = GraficoPCA(df, entrada_escalada)
