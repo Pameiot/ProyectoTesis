@@ -165,7 +165,7 @@ def vista_knn():
             "Eval_Humedad": explicacion[3]
         })
 
-               try:
+    try:
             mensaje_str = (
                 f"Viabilidad={resultado}; "
                 f"Temp={temp:.2f}C; Hum={hum:.2f}% ; Gas={gas:.2f}ppm; pH={ph:.2f}; "
