@@ -199,8 +199,17 @@ def entrenamiento():
                 k_actual = nuevo_k
             else:
                 nuevo_k = request.form.get("nuevo_k", type=int)
-                if nuevo_k and nuevo_k > 0:
-                    k_actual = nuevo_k
+                if nuevo_k is None:
+                    nuevo_k = k_actual
+                if nuevo_k < 1:
+                    nuevo_k = 1
+                elif nuevo_k > 13:
+                    nuevo_k = 13
+                if nuevo_k % 2 == 0:
+                    nuevo_k += 1
+                if nuevo_k > 13:
+                    nuevo_k = 13
+                k_actual = nuevo_k
                 precision, error, y_real, y_pred, _, filas, columnas = entrenar(k_actual)
         else:
             precision, error, y_real, y_pred, _, filas, columnas = entrenar(k_actual)
