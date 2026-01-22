@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, render_template, send_from_directory
 import pandas as pd
 import joblib
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import io
@@ -34,6 +35,7 @@ modelo_knn = joblib.load(os.path.join(BASE_DIR, "modelo_knn.pkl"))
 scaler = joblib.load(os.path.join(BASE_DIR, "scaler.pkl"))
 pca = joblib.load(os.path.join(BASE_DIR, "pca.pkl"))
 
+# ===== Memoria (RAM) =====
 datos_recibidos = []
 resultados_procesados = []
 
@@ -52,6 +54,7 @@ def _to_float(x):
 
 
 def _ensure_csv():
+    """Crea el CSV con cabecera si no existe."""
     if os.path.exists(CSV_PATH):
         return
     df = pd.DataFrame(columns=["FechaHora", "Temp", "Humedad", "Gas", "Ph", "TempAmbiente", "HumedadAmbiente"])
@@ -59,6 +62,7 @@ def _ensure_csv():
 
 
 def _append_csv_row(fecha_hora_ddmmyyyy_hhmm, temp, hum, gas, ph, temp_amb, hum_amb):
+    """Agrega 1 fila al CSV."""
     _ensure_csv()
     row = pd.DataFrame([{
         "FechaHora": fecha_hora_ddmmyyyy_hhmm,
@@ -70,6 +74,69 @@ def _append_csv_row(fecha_hora_ddmmyyyy_hhmm, temp, hum, gas, ph, temp_amb, hum_
         "HumedadAmbiente": hum_amb
     }])
     row.to_csv(CSV_PATH, sep=";", index=False, header=False, mode="a", encoding="utf-8")
+
+
+def _csv_to_datos_recibidos_row(row: dict):
+    """
+    Convierte fila del CSV (FechaHora, Temp, Humedad, Gas, Ph, TempAmbiente, HumedadAmbiente)
+    al formato que tu tabla usa (FECHA, HORA, TEMPERATURA, HUMEDAD, GAS, PH, T.AMBIENTE, H.AMBIENTE)
+    """
+    fh = str(row.get("FechaHora", "")).strip()
+    fecha = ""
+    hora = ""
+    if " " in fh:
+        fecha, hora = fh.split(" ", 1)
+    else:
+        fecha = fh
+
+    return {
+        "FECHA": fecha,
+        "HORA": hora,
+        "TEMPERATURA": _to_float(row.get("Temp")),
+        "HUMEDAD": _to_float(row.get("Humedad")),
+        "GAS": _to_float(row.get("Gas")),
+        "PH": _to_float(row.get("Ph")),
+        "T.AMBIENTE": _to_float(row.get("TempAmbiente")),
+        "H.AMBIENTE": _to_float(row.get("HumedadAmbiente")),
+    }
+
+
+def _cargar_csv_a_memoria(max_filas=5000):
+    """
+    Carga DATA.csv a datos_recibidos (RAM) para que al reiniciar se vean las tablas.
+    max_filas: carga solo las últimas N filas para no consumir demasiada RAM.
+    """
+    global datos_recibidos
+    _ensure_csv()
+
+    try:
+        df = pd.read_csv(CSV_PATH, sep=";")
+        if df.empty:
+            datos_recibidos = []
+            return
+
+        needed = {"FechaHora", "Temp", "Humedad", "Gas", "Ph", "TempAmbiente", "HumedadAmbiente"}
+        if not needed.issubset(set(df.columns)):
+            print("CSV no tiene columnas esperadas. No se carga a memoria.")
+            datos_recibidos = []
+            return
+
+        df["FechaHora_dt"] = pd.to_datetime(df["FechaHora"], format="%d/%m/%Y %H:%M", errors="coerce")
+        df = df.dropna(subset=["FechaHora_dt"]).sort_values("FechaHora_dt")
+
+        if max_filas is not None and len(df) > max_filas:
+            df = df.tail(max_filas)
+
+        datos_recibidos = [_csv_to_datos_recibidos_row(r) for r in df.to_dict(orient="records")]
+        print(f"Memoria cargada con {len(datos_recibidos)} filas desde DATA.csv ✅")
+
+    except Exception as e:
+        print("Error cargando CSV a memoria:", e)
+        datos_recibidos = []
+
+
+# ===== Cargar histórico al arrancar =====
+_cargar_csv_a_memoria(max_filas=5000)
 
 
 @app.route("/css/<path:filename>")
@@ -88,8 +155,12 @@ def home():
     por_pagina = 20
     inicio = (pagina - 1) * por_pagina
     fin = inicio + por_pagina
+
     datos_pagina = datos_recibidos[::-1][inicio:fin]
     total_paginas = (len(datos_recibidos) + por_pagina - 1) // por_pagina
+    if total_paginas < 1:
+        total_paginas = 1
+
     return render_template(
         "index.html",
         encabezados=encabezados_defecto,
@@ -245,7 +316,6 @@ def vista_knn():
         else:
             explicacion.append(f"Humedad: {hum:.1f} %, no adecuada para la descomposición")
 
-
         interpretacion = f"El entorno es clasificado como: {resultado}"
 
         resultados_procesados.append({
@@ -271,8 +341,8 @@ def vista_knn():
         except Exception as e:
             print("MQTT error al publicar:", e)
 
-        df = pd.read_csv(CSV_PATH, delimiter=";")
-        imagen_grafico = GraficoPCA(df, entrada_escalada)
+        df_csv = pd.read_csv(CSV_PATH, delimiter=";")
+        imagen_grafico = GraficoPCA(df_csv, entrada_escalada)
 
     except Exception as e:
         resultado = f"Error al predecir: {e}"
@@ -311,7 +381,6 @@ def entrenamiento():
                     nuevo_k = 13
                 k_actual = int(nuevo_k)
                 precision, error, y_real, y_pred, _, filas, columnas = entrenar(k_actual)
-
             try:
                 with open(K_FILE, "w", encoding="utf-8") as f:
                     f.write(str(k_actual))
@@ -388,6 +457,14 @@ def recibir_datos():
         fecha = data.get("FECHA") or now.strftime("%Y-%m-%d")
         hora = data.get("HORA") or now.strftime("%H:%M")
 
+        # Anti-duplicado rápido (si el dispositivo reenvía el mismo instante)
+        if datos_recibidos:
+            last = datos_recibidos[-1]
+            last_key = f"{last.get('FECHA','')} {last.get('HORA','')}"
+            key = f"{fecha} {hora}"
+            if key == last_key:
+                return {"status": "ok", "mensaje": "Dato duplicado ignorado"}, 200
+
         data_normalizada = {
             "FECHA": str(fecha),
             "HORA": str(hora),
@@ -408,10 +485,10 @@ def recibir_datos():
             print("Error guardando en CSV:", e)
 
         return {"status": "ok", "mensaje": "Datos recibidos y guardados"}, 200
+
     except Exception as e:
         return {"status": "error", "mensaje": f"Error en datos: {e}"}, 500
 
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
-
