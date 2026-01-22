@@ -65,28 +65,65 @@ def obtener_ultimos():
     cantidad = int(request.args.get("n", 10))
     ultimos = datos_recibidos[-cantidad:]
     return jsonify(ultimos)
-
 @app.route("/grafica")
 def grafica():
-    if not datos_recibidos:
-        return render_template("grafica.html", fechas=[], temperaturas=[], humedades=[], phs=[], gases=[], t_ambiente=[], h_ambiente=[])
+    return render_template(
+        "grafica.html",
+        fechas=[],
+        temperaturas=[],
+        humedades=[],
+        phs=[],
+        gases=[],
+        t_ambiente=[],
+        h_ambiente=[]
+    )
 
-    fechas = [f"{d.get('FECHA', 'N/A')} {d.get('HORA', 'N/A')}" for d in datos_recibidos]
-    temperaturas = [float(d.get("TEMPERATURA", 0)) for d in datos_recibidos]
-    humedades = [float(d.get("HUMEDAD", 0)) for d in datos_recibidos]
-    phs = [float(d.get("PH", 0)) for d in datos_recibidos]
-    gases = [float(d.get("GAS", 0)) for d in datos_recibidos]
-    t_ambiente = [float(d.get("T.AMBIENTE", 0)) for d in datos_recibidos]
-    h_ambiente = [float(d.get("H.AMBIENTE", 0)) for d in datos_recibidos]
-
-    return render_template("grafica.html", fechas=fechas, temperaturas=temperaturas, humedades=humedades,
-                        phs=phs, gases=gases, t_ambiente=t_ambiente, h_ambiente=h_ambiente)
 
 @app.route("/historial")
 def historial():
     try:
         df = pd.read_csv(CSV_PATH, delimiter=';')
-        return {
+        if df.empty or "FechaHora" not in df.columns:
+            return jsonify({
+                "labels": [],
+                "temperaturas": [],
+                "humedades": [],
+                "gases": [],
+                "phs": [],
+                "t_amb": [],
+                "h_amb": []
+            })
+        df["FechaHora_dt"] = pd.to_datetime(df["FechaHora"], errors="coerce")
+        desde = request.args.get("desde")
+        hasta = request.args.get("hasta")
+        if desde and hasta:
+            desde_dt = pd.to_datetime(desde + " 00:00:00", errors="coerce")
+            hasta_dt = pd.to_datetime(hasta + " 23:59:59", errors="coerce")
+            if pd.isna(desde_dt) or pd.isna(hasta_dt):
+                return jsonify({
+                    "labels": [],
+                    "temperaturas": [],
+                    "humedades": [],
+                    "gases": [],
+                    "phs": [],
+                    "t_amb": [],
+                    "h_amb": []
+                })
+
+            df = df[(df["FechaHora_dt"] >= desde_dt) & (df["FechaHora_dt"] <= hasta_dt)]
+        if df.empty:
+            return jsonify({
+                "labels": [],
+                "temperaturas": [],
+                "humedades": [],
+                "gases": [],
+                "phs": [],
+                "t_amb": [],
+                "h_amb": []
+            })
+        df = df.sort_values("FechaHora_dt")
+
+        return jsonify({
             "labels": df["FechaHora"].astype(str).tolist(),
             "temperaturas": df["Temp"].astype(float).tolist(),
             "humedades": df["Humedad"].astype(float).tolist(),
@@ -94,10 +131,10 @@ def historial():
             "phs": df["Ph"].astype(float).tolist(),
             "t_amb": df["TempAmbiente"].astype(float).tolist(),
             "h_amb": df["HumedadAmbiente"].astype(float).tolist()
-        }
-    except Exception as e:
-        return {"error": f"Ocurrió un error al cargar historial: {e}"}, 500
+        })
 
+    except Exception as e:
+        return jsonify({"error": f"Ocurrió un error al cargar historial: {e}"}), 500
 
 
 @app.route("/knn")
