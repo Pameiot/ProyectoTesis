@@ -96,11 +96,7 @@ def entrenar(k=5):
 
     return precision, error, y_test, y_pred, k, df.shape[0], df.shape[1]
 def mejorKnn(max_k=21, num_folds=5):
-    """
-    Busca el mejor k IMPAR en [1, max_k] con validación cruzada estratificada.
-    Escalado dentro de cada fold (sin fuga).
-    Luego realiza `entrenar(mejor_k)` para producir artefactos finales.
-    """
+
     X, y, _ = PreparaDatos()
     from sklearn.model_selection import StratifiedKFold
     skf = StratifiedKFold(n_splits=num_folds, shuffle=True, random_state=42)
