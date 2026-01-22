@@ -64,6 +64,7 @@ def home():
 def obtener_ultimos():
     cantidad = int(request.args.get("n", 10))
     ultimos = datos_recibidos[-cantidad:]
+    ultimos = list(reversed(ultimos))
     return jsonify(ultimos)
 @app.route("/grafica")
 def grafica():
