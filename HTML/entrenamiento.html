@@ -59,7 +59,7 @@
                             class="d-flex justify-content-center align-items-center mb-3" style="gap: 10px;">
                             <input type="number" name="nuevo_k" min="1" max="13" step="2" class="form-control" placeholder="Valor de K" required>
                             <button type="submit" name="entrenar" value="manual"
-                                class="btn btn-primary">Entrenar</button>
+                                class="btn btn-primary">Simular</button>
                         </form>
 
                         <form action="/entrenamiento" method="post" class="text-center">
@@ -67,6 +67,8 @@
                                 class="btn btn-warning">Automático</button>
                         </form>
                     </div>
+                    <p class="text-muted mt-3">
+                    Esta sección permite comprender cómo el valor de K influye en el rendimiento del modelo.No afecta a la predicción ni a las notificaciones del sistema en tiempo real.</p>
                 </div>
             </div>
 
