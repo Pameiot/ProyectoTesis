@@ -11,13 +11,12 @@
 
 <body>
     <div class="container my-4">
-        <div class="d-flex align-items-center justify-content-between" style="gap: 20px; flex-wrap: nowrap">
-            <img src="/recursos/utn.png" class="img-fluid" style="height: 80px" alt="Logo UTN" />
-            <h2 class="text-center fw-bold m-0 flex-grow-1" style="font-size: 16px; line-height: 1.4">
-                SISTEMA IOT DE MONITOREO DE RESIDUOS ORGÁNICOS DE GANADO BOVINO EN LA
-                COMUNIDAD DE GUANANGUICHO SUR DEL CANTÓN SAN PEDRO DE HUACA
+        <div class="d-flex align-items-center justify-content-between" style="gap:20px; flex-wrap:nowrap">
+            <img src="/recursos/utn.png" class="img-fluid" style="height:80px" />
+            <h2 class="text-center fw-bold m-0 flex-grow-1" style="font-size:16px">
+                SISTEMA IOT DE MONITOREO DE RESIDUOS ORGÁNICOS DE GANADO BOVINO
             </h2>
-            <img src="/recursos/Fica.png" class="img-fluid" style="height: 40px" alt="Logo FICA" />
+            <img src="/recursos/Fica.png" class="img-fluid" style="height:40px" />
         </div>
     </div>
 
@@ -28,36 +27,36 @@
         <a href="/entrenamiento" class="btn btn-dark mx-2">ENTRENAMIENTO</a>
     </div>
 
-<div class="container mb-4">
-    <div class="row">
-        <div class="col-md-2"></div>
-        <div class="col-md-8">
-            <div class="d-flex flex-wrap justify-content-center align-items-end gap-3">
-                <div class="btn-group">
-                    <button class="btn btn-outline-primary" id="btnHoy">Hoy</button>
-                    <button class="btn btn-outline-primary" id="btn7">7 días</button>
-                    <button class="btn btn-outline-primary" id="btn30">30 días</button>
-                </div>
-                <div>
-                    <label class="form-label mb-0">Desde</label>
-                    <input type="date" class="form-control" id="fechaInicio">
-                </div>
-                <div>
-                    <label class="form-label mb-0">Hasta</label>
-                    <input type="date" class="form-control" id="fechaFin">
-                </div>
-                <div>
-                    <button class="btn btn-success mt-4" id="btnAplicar">Aplicar filtro</button>
-                </div>
+    <!-- FILTRO -->
+    <div class="container mb-4">
+        <div class="d-flex flex-wrap justify-content-center align-items-end gap-3">
+            <div class="btn-group">
+                <button class="btn btn-outline-primary" id="btnHoy">Hoy</button>
+                <button class="btn btn-outline-primary" id="btn7">7 días</button>
+                <button class="btn btn-outline-primary" id="btn30">30 días</button>
+            </div>
+
+            <div>
+                <label class="form-label mb-0">Desde</label>
+                <input type="date" class="form-control" id="fechaInicio">
+            </div>
+
+            <div>
+                <label class="form-label mb-0">Hasta</label>
+                <input type="date" class="form-control" id="fechaFin">
+            </div>
+
+            <div>
+                <button class="btn btn-success mt-4" id="btnAplicar">Aplicar filtro</button>
             </div>
         </div>
 
-        <div class="d-flex justify-content-end mt-3">
-        <div id="rangoActivo" class="text-muted small"></div>
+        <div class="d-flex justify-content-end mt-2">
+            <div id="rangoActivo" class="text-muted small"></div>
+        </div>
     </div>
-    </div>
-</div>
 
+    <!-- GRAFICAS -->
     <div class="container">
         <div class="row g-4">
             <div class="col-md-4"><canvas id="graficaAmbiental"></canvas></div>
@@ -71,56 +70,27 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script>
-        let labels = [];
-        let temperaturas = [];
-        let humedades = [];
-        let phs = [];
-        let gases = [];
-        let t_amb = [];
-        let h_amb = [];
-
+        let labels = [], temperaturas = [], humedades = [], phs = [], gases = [], t_amb = [], h_amb = [];
+        let rangoDesdeActual = null;
+        let rangoHastaActual = null;
         let charts = {};
 
-        function crearGrafica(idCanvas, datasets, titulo, minY = 0, maxY = 100) {
-            const ctx = document.getElementById(idCanvas).getContext("2d");
-            if (charts[idCanvas]) charts[idCanvas].destroy();
+        function crearGrafica(id, datasets, titulo, minY = 0, maxY = 100) {
+            const ctx = document.getElementById(id).getContext("2d");
+            if (charts[id]) charts[id].destroy();
 
-            const step = (maxY - minY) > 20 ? 10 : undefined;
-
-            charts[idCanvas] = new Chart(ctx, {
+            charts[id] = new Chart(ctx, {
                 type: "line",
-                data: {
-                    labels: labels,
-                    datasets: datasets
-                },
+                data: { labels, datasets },
                 options: {
                     responsive: true,
                     plugins: {
-                        legend: {
-                            labels: {
-                                usePointStyle: true,
-                                pointStyle: 'circle'
-                            }
-                        },
-                        title: {
-                            display: true,
-                            text: titulo,
-                            font: { size: 12 }
-                        }
+                        legend: { labels: { usePointStyle: true } },
+                        title: { display: true, text: titulo, font: { size: 12 } }
                     },
                     scales: {
-                        x: {
-                            ticks: { display: false },
-                            title: { display: true, text: "Fecha y Hora" },
-                            grid: { drawTicks: false }
-                        },
-                        y: {
-                            beginAtZero: true,
-                            min: minY,
-                            max: maxY,
-                            ticks: step ? { stepSize: step } : {},
-                            title: { display: true, text: "Valor" }
-                        }
+                        x: { ticks: { display: false }, title: { display: true, text: "Fecha y Hora" } },
+                        y: { beginAtZero: true, min: minY, max: maxY, title: { display: true, text: "Valor" } }
                     }
                 }
             });
@@ -128,77 +98,33 @@
 
         function actualizarGraficas() {
             crearGrafica("graficaAmbiental", [
-                {
-                    label: "T. Ambiente",
-                    data: t_amb,
-                    borderColor: "purple",
-                    pointBackgroundColor: "purple",
-                    backgroundColor: "rgba(128, 0, 128, 0.2)",
-                    tension: 0.3,
-                    fill: true
-                },
-                {
-                    label: "H. Ambiente",
-                    data: h_amb,
-                    borderColor: "teal",
-                    pointBackgroundColor: "teal",
-                    backgroundColor: "rgba(0, 128, 128, 0.2)",
-                    tension: 0.3,
-                    fill: true
-                }
+                { label:"T. Ambiente", data:t_amb, borderColor:"purple", backgroundColor:"rgba(128,0,128,0.2)", fill:true },
+                { label:"H. Ambiente", data:h_amb, borderColor:"teal", backgroundColor:"rgba(0,128,128,0.2)", fill:true }
             ], "Temperatura y Humedad Ambiental");
 
-            crearGrafica("graficaTemperatura", [{
-                label: "Temperatura",
-                data: temperaturas,
-                borderColor: "red",
-                pointBackgroundColor: "red",
-                backgroundColor: "rgba(255, 0, 0, 0.2)",
-                tension: 0.3,
-                fill: true
-            }], "Temperatura de la Fosa", 0, 60);
+            crearGrafica("graficaTemperatura", [
+                { label:"Temperatura", data:temperaturas, borderColor:"red", backgroundColor:"rgba(255,0,0,0.2)", fill:true }
+            ], "Temperatura de la Fosa", 0, 60);
 
-            crearGrafica("graficaHumedad", [{
-                label: "Humedad",
-                data: humedades,
-                borderColor: "blue",
-                pointBackgroundColor: "blue",
-                backgroundColor: "rgba(0, 0, 255, 0.2)",
-                tension: 0.3,
-                fill: true
-            }], "Humedad del Suelo", 0, 100);
+            crearGrafica("graficaHumedad", [
+                { label:"Humedad", data:humedades, borderColor:"blue", backgroundColor:"rgba(0,0,255,0.2)", fill:true }
+            ], "Humedad del Suelo", 0, 100);
 
-            crearGrafica("graficaPH", [{
-                label: "pH",
-                data: phs,
-                borderColor: "green",
-                pointBackgroundColor: "green",
-                backgroundColor: "rgba(0, 128, 0, 0.2)",
-                tension: 0.3,
-                fill: true
-            }], "pH", 0, 14);
+            crearGrafica("graficaPH", [
+                { label:"pH", data:phs, borderColor:"green", backgroundColor:"rgba(0,128,0,0.2)", fill:true }
+            ], "pH", 0, 14);
 
-            crearGrafica("graficaGas", [{
-                label: "Gas",
-                data: gases,
-                borderColor: "orange",
-                pointBackgroundColor: "orange",
-                backgroundColor: "rgba(255, 165, 0, 0.2)",
-                tension: 0.3,
-                fill: true
-            }], "Gas", 0, 200);
+            crearGrafica("graficaGas", [
+                { label:"Gas", data:gases, borderColor:"orange", backgroundColor:"rgba(255,165,0,0.2)", fill:true }
+            ], "Gas", 0, 200);
         }
 
-        function fmt(d) {
-            return d.toISOString().slice(0, 10); // YYYY-MM-DD
-        }
+        function fmt(d){ return d.toISOString().slice(0,10); }
 
-        function setInputs(desde, hasta) {
-            document.getElementById("fechaInicio").value = desde;
-            document.getElementById("fechaFin").value = hasta;
-        }
+        async function cargarRango(desde, hasta){
+            rangoDesdeActual = desde;
+            rangoHastaActual = hasta;
 
-        async function cargarRango(desde, hasta) {
             const res = await fetch(`/historial?desde=${desde}&hasta=${hasta}`);
             const data = await res.json();
 
@@ -216,47 +142,45 @@
             actualizarGraficas();
         }
 
-        document.getElementById("btnHoy").addEventListener("click", () => {
-            const hoy = new Date();
-            const desde = fmt(hoy);
-            const hasta = fmt(hoy);
-            setInputs(desde, hasta);
-            cargarRango(desde, hasta);
-        });
-        document.getElementById("btn7").addEventListener("click", () => {
-            const hastaD = new Date();
-            const desdeD = new Date();
-            desdeD.setDate(hastaD.getDate() - 6);
-            const desde = fmt(desdeD);
-            const hasta = fmt(hastaD);
-            setInputs(desde, hasta);
-            cargarRango(desde, hasta);
-        });
-        document.getElementById("btn30").addEventListener("click", () => {
-            const hastaD = new Date();
-            const desdeD = new Date();
-            desdeD.setDate(hastaD.getDate() - 29);
-            const desde = fmt(desdeD);
-            const hasta = fmt(hastaD);
-            setInputs(desde, hasta);
-            cargarRango(desde, hasta);
-        });
-        document.getElementById("btnAplicar").addEventListener("click", () => {
-            const desde = document.getElementById("fechaInicio").value;
-            const hasta = document.getElementById("fechaFin").value;
+        btnHoy.onclick = () => {
+            const h = new Date();
+            cargarRango(fmt(h), fmt(h));
+            fechaInicio.value = fmt(h);
+            fechaFin.value = fmt(h);
+        };
 
-            if (!desde || !hasta) return alert("Selecciona fecha inicio y fecha fin");
-            if (desde > hasta) return alert("La fecha 'Desde' no puede ser mayor que 'Hasta'");
+        btn7.onclick = () => {
+            const h = new Date();
+            const d = new Date(); d.setDate(h.getDate()-6);
+            cargarRango(fmt(d), fmt(h));
+            fechaInicio.value = fmt(d);
+            fechaFin.value = fmt(h);
+        };
 
-            cargarRango(desde, hasta);
-        });
+        btn30.onclick = () => {
+            const h = new Date();
+            const d = new Date(); d.setDate(h.getDate()-29);
+            cargarRango(fmt(d), fmt(h));
+            fechaInicio.value = fmt(d);
+            fechaFin.value = fmt(h);
+        };
 
-        window.addEventListener("DOMContentLoaded", () => {
-            document.getElementById("btnHoy").click();
-        });
+        btnAplicar.onclick = () => {
+            if (!fechaInicio.value || !fechaFin.value) return alert("Selecciona fechas");
+            if (fechaInicio.value > fechaFin.value) return alert("Rango inválido");
+            cargarRango(fechaInicio.value, fechaFin.value);
+        };
+
+        window.addEventListener("DOMContentLoaded", () => btnHoy.click());
+
+        setInterval(() => {
+            if (rangoDesdeActual && rangoHastaActual) {
+                cargarRango(rangoDesdeActual, rangoHastaActual);
+            }
+        }, 30000);
     </script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
-
 </html>
+
